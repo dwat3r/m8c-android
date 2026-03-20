@@ -9,6 +9,9 @@ import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.Color
 import android.hardware.usb.UsbDevice
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbManager
 import android.hardware.usb.UsbManager.ACTION_USB_DEVICE_DETACHED
@@ -75,6 +78,39 @@ class M8SDLActivity : SDLActivity() {
     }
 
     private var usbConnection: UsbDeviceConnection? = null
+    private var useDefaultAudio = false
+    private var useDefaultAudioInput = false
+    private var audioBuffer = 4096
+    private var currentAudioDeviceId = 0
+    private var currentAudioInputDeviceId = 0
+
+    private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<AudioDeviceInfo>) {
+            if (useDefaultAudio) updateAudioOutputDevice()
+            if (useDefaultAudioInput) updateAudioInputDevice()
+        }
+        override fun onAudioDevicesRemoved(removedDevices: Array<AudioDeviceInfo>) {
+            if (useDefaultAudio) updateAudioOutputDevice()
+            if (useDefaultAudioInput) updateAudioInputDevice()
+        }
+    }
+
+    private fun updateAudioOutputDevice() {
+        val newDeviceId = GeneralSettings.getBestOutputDeviceId(this)
+        if (newDeviceId == currentAudioDeviceId) return
+        Log.i(TAG, "Audio output device changed: $currentAudioDeviceId -> $newDeviceId")
+        currentAudioDeviceId = newDeviceId
+        hintAudioOutputDevice(newDeviceId)
+        Thread { restartAudioOutput(audioBuffer) }.start()
+    }
+
+    private fun updateAudioInputDevice() {
+        val newDeviceId = GeneralSettings.getBestInputDeviceId(this)
+        if (newDeviceId == currentAudioInputDeviceId) return
+        Log.i(TAG, "Audio input device changed: $currentAudioInputDeviceId -> $newDeviceId")
+        currentAudioInputDeviceId = newDeviceId
+        hintAudioInputDevice(newDeviceId)
+    }
 
     override fun onStart() {
         Log.i(TAG, "Searching for an M8 device")
@@ -102,6 +138,9 @@ class M8SDLActivity : SDLActivity() {
         super.onDestroy()
         unregisterReceiver(usbReceiver)
         usbConnection?.close()
+        if (useDefaultAudio || useDefaultAudioInput) {
+            getSystemService(AudioManager::class.java).unregisterAudioDeviceCallback(audioDeviceCallback)
+        }
     }
 
     override fun onStop() {
@@ -113,7 +152,20 @@ class M8SDLActivity : SDLActivity() {
         Log.d(TAG, "onCreate()")
         super.onCreate(savedInstanceState)
         val generalPreferences = GeneralSettings.getGeneralPreferences(this)
+        useDefaultAudio = generalPreferences.useDefaultAudio
+        useDefaultAudioInput = generalPreferences.useDefaultAudioInput
+        audioBuffer = generalPreferences.audioBuffer
         hintAudioDriver(generalPreferences.audioDriver)
+        if (useDefaultAudio) {
+            currentAudioDeviceId = GeneralSettings.getBestOutputDeviceId(this)
+            hintAudioOutputDevice(currentAudioDeviceId)
+        }
+        currentAudioInputDeviceId = generalPreferences.audioInputDevice
+        hintAudioInputDevice(generalPreferences.audioInputDevice)
+        if (useDefaultAudio || useDefaultAudioInput) {
+            getSystemService(AudioManager::class.java)
+                .registerAudioDeviceCallback(audioDeviceCallback, Handler(Looper.getMainLooper()))
+        }
         lockOrientation(
             if (generalPreferences.useNewLayout) "Portrait PortraitUpsideDown"
             else if (generalPreferences.lockOrientation) "LandscapeLeft LandscapeRight" else null
@@ -233,6 +285,12 @@ class M8SDLActivity : SDLActivity() {
     private external fun connect(fileDescriptor: Int)
 
     private external fun hintAudioDriver(audioDriver: String?)
+
+    private external fun hintAudioOutputDevice(deviceId: Int)
+
+    private external fun restartAudioOutput(bufferSize: Int)
+
+    private external fun hintAudioInputDevice(deviceId: Int)
 
     private external fun lockOrientation(orientation: String?)
 

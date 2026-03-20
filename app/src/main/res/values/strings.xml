@@ -29,11 +29,19 @@
         <item>4096</item>
         <item>8192</item>
     </string-array>
+    <string name="use_default_audio_pref">use_default_audio</string>
+    <string name="use_default_audio">Use default audio device</string>
+    <string name="use_default_audio_summary">Let the system decide; follows headphones, Bluetooth, etc.</string>
     <string name="audio_header">Audio</string>
     <string name="other">Other</string>
     <string name="audio_driver_pref">audio_driver</string>
     <string name="audio_buffer_pref">audio_buffer</string>
     <string name="audio_device_pref">audio_device</string>
+    <string name="use_default_audio_input_pref">use_default_audio_input</string>
+    <string name="use_default_audio_input">Use default audio input</string>
+    <string name="use_default_audio_input_summary">Let the system decide; follows headset mic, Bluetooth, etc.</string>
+    <string name="audio_input_device_pref">audio_input_device</string>
+    <string name="choose_audio_input_device">Audio input device</string>
     <string name="buttons_pref">buttons</string>
     <string name="ui">User Interface</string>
     <string name="lock_orientation_pref">lock_orientation</string>
